@@ -3,6 +3,7 @@
 # authored by Osborne 2017-10-24
 
 from scapy.all import *
+from util import *
 
 invalid_time_stamp = -1.0
 time_out_threshold = 5
@@ -73,7 +74,7 @@ class StreamAttribute(object):
             tcp = pkt[TCP]
             if tcp.flags == TCP_FLAG_S and self.client_syn_time == invalid_time_stamp:
                 self.client_syn_time = pkt_time
-            if tcp.flags == TCP_FLAG_S ^ TCP_FALG_A and self.server_syn_ack_time == invalid_time_stamp:
+            if tcp.flags == TCP_FLAG_S ^ TCP_FLAG_A and self.server_syn_ack_time == invalid_time_stamp:
                 self.server_syn_ack_time = pkt_time
             if tcp.flags & TCP_FLAG_P:
                 if  self.get_pkt_dir(pkt) == 0:
@@ -132,7 +133,7 @@ def extract_attr_from_pcap(pcap_dir,out_dir):
             streams[key2].extract_attr_from_pkt(pkt)
         else:
             tcp = pkt[TCP]
-            if tcp.flags = TCP_FLAG_S:
+            if tcp.flags == TCP_FLAG_S:
                 new_stream_attr = StreamAttribute(tuple4)
                 streams[key1] = new_stream_attr
                 new_stream_attr.extract_attr_from_pkt(pkt)
