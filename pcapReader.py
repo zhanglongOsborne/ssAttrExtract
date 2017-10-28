@@ -51,6 +51,7 @@ class StreamAttribute(object):
 
     def get_pkt_dir(self, pkt):
         pkt_tuple4 = get_4_tuple(pkt)
+        pkt_tuple4 = get_4_tuple(pkt)
         if pkt_tuple4[0] == self.tuple_4[0]:
             return 0
         else:
@@ -58,6 +59,7 @@ class StreamAttribute(object):
 
     def extract_attr_from_pkt(self, pkt):
         if TCP in pkt:
+            tcp = pkt[TCP]
             self.pkt_cnt = self.pkt_cnt + 1
             pkt_len = len(tcp)
             pkt_time = get_pkt_time(pkt)
@@ -71,23 +73,24 @@ class StreamAttribute(object):
                 self.last_pkt_time = pkt_time
 
 
-            tcp = pkt[TCP]
+            #print tcp.flags
             if tcp.flags == TCP_FLAG_S and self.client_syn_time == invalid_time_stamp:
                 self.client_syn_time = pkt_time
             if tcp.flags == TCP_FLAG_S ^ TCP_FLAG_A and self.server_syn_ack_time == invalid_time_stamp:
                 self.server_syn_ack_time = pkt_time
-            if tcp.flags & TCP_FLAG_P:
-                if  self.get_pkt_dir(pkt) == 0:
+            #if tcp.flags & TCP_FLAG_P:
+            if hasattr(tcp,'load'):
+                if self.get_pkt_dir(pkt) == 0:
                     if self.client_data_send_time == invalid_time_stamp:
                         self.client_data_send_time = pkt_time
                         self.client_send_data_len = len(tcp.load)
                         self.client_send_data = tcp.load
-                    else:
-                        self.is_server_reply = 1
-                        self.server_reply_data_len = len(tcp.load)
-                        self.server_reply_time = pkt_time
-                        self.server_reply_data = tcp.load
-                        self.server_reply_type = analyse_reply_data(tcp.load)
+                else:
+                    self.is_server_reply = 1
+                    self.server_reply_data_len = len(tcp.load)
+                    self.server_reply_time = pkt_time
+                    self.server_reply_data = tcp.load
+                    self.server_reply_type = analyse_reply_data(tcp.load)
             if tcp.flags & TCP_FLAG_R :
                 self.is_rst = 1
                 if self.get_pkt_dir(pkt) == 0:
@@ -108,14 +111,14 @@ class StreamAttribute(object):
             return
 
     def formate_write_file(self, fd):
-        record = self.tuple_4[0] + "\t" + self.tuple_4[1] + "\t" + str(self.tuple_4[2]) + "\t" + str(selef.tuple_4[3]) \
+        record = self.tuple_4[0] + "\t" + self.tuple_4[1] + "\t" + str(self.tuple_4[2]) + "\t" + str(self.tuple_4[3]) \
                  + "\t" + str(self.client_syn_time) + "\t" + str(self.server_syn_ack_time) + "\t" + str(self.client_data_send_time) \
                  + "\t" + str(self.client_send_data_len) + "\t" + str(self.is_server_reply) + "\t" + str(self.server_reply_data_len) \
                  + "\t" + str(self.server_reply_time) + "\t" + str(self.server_reply_type) + "\t" + str(self.is_rst) \
                 + "\t" + str(self.rst_dir) + "\t" + str(self.is_fin) + "\t" + str(self.fin_dir) + "\t" + str(self.fin_time) \
                 + "\t" + str(self.is_timeout) + "\t" + str(self.pkt_cnt) + "\t" + str(self.max_pkt_len) + "\t" + str(self.min_pkt_len) \
-                + "\t" + str(self.ave_pkt_len) + "\t" + str(self.client_fin_server_rst) + "\t" + str(self.server_fin_client_rst)
-        fd.writelines(record)
+                + "\t" + str(self.ave_pkt_len) + "\t" + str(self.client_fin_server_rst) + "\t" + str(self.server_fin_client_rst)+"\n"
+        fd.write(record)
 
 
 def extract_attr_from_pcap(pcap_dir,out_dir):
@@ -126,6 +129,8 @@ def extract_attr_from_pcap(pcap_dir,out_dir):
     left_pkts = scapy.plist.PacketList()
     for pkt in pkts:
         tuple4 = get_4_tuple(pkt)
+        if tuple4 is None:
+            continue
         key1, key2 = trans_tuple4_to_str(tuple4)
         if streams.has_key(key1):
             streams[key1].extract_attr_from_pkt(pkt)
@@ -153,9 +158,9 @@ def extract_attr_from_pcap(pcap_dir,out_dir):
     for v in streams.itervalues():
         if v.fin_time != 0:
             if v.fin_time - v.client_data_send_time >= time_out_threshold:
-                v.is_timeout = 1;
+                v.is_timeout = 1
         else:
             if v.last_pkt_time - v.client_data_send_time >= time_out_threshold:
-                v.is_timeout = 1;
+                v.is_timeout = 1
         v.formate_write_file(out_fd)
 
