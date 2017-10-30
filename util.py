@@ -1,6 +1,10 @@
+#!/usr/bin/env python
+# -*- coding = UTF-8 -*-
+# authored by Osborne 2017-10-24
 from scapy.all import *
 import os
 import sys
+import chardet
 
 # TCP flags
 TCP_FLAG_C = 0x80
@@ -29,6 +33,7 @@ def get_pkt_time(pkt):
 def analyse_reply_data(replystr):
     ret = RE_OTHER
     replaystr = replystr.lower()
+    #print chardet.detect(replaystr)
     if "400 Bad request" in replystr:
         ret = ret ^ RE_400_BAD_REQ
     if "421" in replystr:
@@ -37,7 +42,9 @@ def analyse_reply_data(replystr):
         ret = ret ^ RE_220_FTP_READY
     if "530" in replystr:
         ret = ret ^ RE_530_LOGIN
-    if bytes(b'\x15\x03\x01\x00\x02\x02\x46').decode('ascii') in replystr:
+
+    if len(replaystr)==7 and bytes(b'\x15\x03\x01\x00\x02\x02\x46') in replystr.decode('utf8'):
+        #print chardet.detect(replaystr)
         ret = ret ^ RE_SSL_ALERT
     if "ssh" in replystr:
         ret = ret ^ RE_SSH_VER
@@ -58,8 +65,10 @@ def get_4_tuple(pkt):
         if TCP in pkt:
             tuple_4.append(pkt[TCP].sport)
             tuple_4.append(pkt[TCP].dport)
-        else:
+        elif UDP in pkt:
             tuple_4.append(pkt[UDP].sport)
             tuple_4.append(pkt[UDP].dport)
+        else :
+            return
         return tuple_4
 
